@@ -17,6 +17,7 @@
 #include <sharedutils/datastream.h>
 #include <sharedutils/util_parallel_job.hpp>
 #include <sharedutils/util_path.hpp>
+#include <sharedutils/magic_enum.hpp>
 #include <spdlog/spdlog.h>
 #include <spdlog/logger.h>
 #include <spdlog/sinks/stdout_color_sinks.h>
