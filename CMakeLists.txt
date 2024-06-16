@@ -19,4 +19,6 @@ else()
     set_target_properties(${PROJ_NAME} PROPERTIES VS_DEBUGGER_COMMAND "${CMAKE_INSTALL_PREFIX}/${BINARY_OUTPUT_DIR}/${PROJ_NAME}.exe")
 endif()
 
-pr_finalize(${PROJ_NAME} FOLDER core)
+pr_set_target_folder(render_raytracing_lib tools)
+
+pr_finalize(${PROJ_NAME} FOLDER tools)
