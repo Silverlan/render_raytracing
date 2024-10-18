@@ -1,17 +1,11 @@
 #define UIMG_ENABLE_NVTT
-#include <util_raytracing/object.hpp>
-#include <util_raytracing/mesh.hpp>
-#include <util_raytracing/camera.hpp>
-#include <util_raytracing.hpp>
-#include <util_raytracing/scene.hpp>
-#include <util_raytracing/renderer.hpp>
-#include <util_raytracing/shader.hpp>
 #include <util_image.hpp>
 #include <util_image_buffer.hpp>
 #include <util_texture_info.hpp>
 #include <sharedutils/util_command_manager.hpp>
 #include <sharedutils/util.h>
 #include <sharedutils/util_file.h>
+#include <sharedutils/magic_enum.hpp>
 #undef __UTIL_STRING_H__
 #include <sharedutils/util_string.h>
 #include <sharedutils/datastream.h>
@@ -28,6 +22,8 @@
 #include <queue>
 #include <cstdlib>
 
+import pragma.scenekit;
+
 #pragma optimize("", off)
 static std::shared_ptr<spdlog::logger> g_logger = nullptr;
 class RTJobManager {
@@ -37,11 +33,11 @@ class RTJobManager {
 		FilmicBlender
 	};
 	struct DeviceInfo {
-		DeviceInfo(unirender::Scene::DeviceType deviceType) : deviceType {deviceType} {}
-		unirender::Scene::DeviceType deviceType {};
+		DeviceInfo(pragma::scenekit::Scene::DeviceType deviceType) : deviceType {deviceType} {}
+		pragma::scenekit::Scene::DeviceType deviceType {};
 		std::optional<util::ParallelJob<uimg::ImageLayerSet>> job {};
-		std::shared_ptr<unirender::Renderer> renderer = nullptr;
-		std::shared_ptr<unirender::Scene> rtScene = nullptr;
+		std::shared_ptr<pragma::scenekit::Renderer> renderer = nullptr;
+		std::shared_ptr<pragma::scenekit::Scene> rtScene = nullptr;
 		std::chrono::high_resolution_clock::time_point startTime {};
 		util::Path outputPath {};
 	};
@@ -67,7 +63,7 @@ class RTJobManager {
   private:
 	RTJobManager(std::unordered_map<std::string, std::string> &&launchParams, const std::string &inputFileName);
 	void UpdateJob(DeviceInfo &devInfo);
-	void PrintHeader(const unirender::Scene::CreateInfo &createInfo, const unirender::Scene::SceneInfo &sceneInfo);
+	void PrintHeader(const pragma::scenekit::Scene::CreateInfo &createInfo, const pragma::scenekit::Scene::SceneInfo &sceneInfo);
 	void PrintHelp();
 	void PrintCommandHelp();
 	bool StartJob(const std::string &job, DeviceInfo &devInfo);
@@ -79,7 +75,7 @@ class RTJobManager {
 	std::queue<std::string> m_jobQueue {};
 	uint32_t m_numJobs = 0;
 
-	unirender::Scene::RenderMode m_renderMode;
+	pragma::scenekit::Scene::RenderMode m_renderMode;
 	bool m_shutdownOnCompletion = false;
 	bool m_dontCloseOnCompletion = true;
 	float m_exposure = 0.f;
@@ -115,7 +111,7 @@ RTJobManager::RTJobManager(std::unordered_map<std::string, std::string> &&launch
 	auto logger = std::make_shared<spdlog::logger>("renderer", spdlog::sinks_init_list {conSink, fileSink});
 	logger->set_level(spdlog::level::info);
 	spdlog::register_logger(logger);
-	unirender::set_logger(logger);
+	pragma::scenekit::set_logger(logger);
 	g_logger = logger;
 
 	// Don't go into auto-sleep mode while the program is running
@@ -126,11 +122,11 @@ RTJobManager::RTJobManager(std::unordered_map<std::string, std::string> &&launch
 	auto itKernelPath = m_launchParams.find("-kernel_path");
 	if(itKernelPath != m_launchParams.end())
 		kernelPath = itKernelPath->second;
-	unirender::Scene::SetKernelPath(kernelPath.GetString());*/
-	unirender::set_module_lookup_location("modules/unirender/");
+	pragma::scenekit::Scene::SetKernelPath(kernelPath.GetString());*/
+	pragma::scenekit::set_module_lookup_location("modules/unirender/");
 
 	auto itVerbose = m_launchParams.find("-verbose");
-	unirender::Scene::SetVerbose(itVerbose != m_launchParams.end());
+	pragma::scenekit::Scene::SetVerbose(itVerbose != m_launchParams.end());
 
 	auto itExposure = m_launchParams.find("-exposure");
 	if(itExposure != m_launchParams.end())
@@ -146,7 +142,7 @@ RTJobManager::RTJobManager(std::unordered_map<std::string, std::string> &&launch
 
 	auto itLog = m_launchParams.find("-log");
 	if(itLog != m_launchParams.end()) {
-		unirender::set_log_handler([](std::string msg) { g_logger->info(msg); });
+		pragma::scenekit::set_log_handler([](std::string msg) { g_logger->info(msg); });
 	}
 
 #if 0
@@ -163,16 +159,16 @@ RTJobManager::RTJobManager(std::unordered_map<std::string, std::string> &&launch
 	if(itDeviceType != m_launchParams.end()) {
 		auto &strDeviceType = itDeviceType->second;
 		if(ustring::compare<std::string>(strDeviceType, "cpu", false))
-			m_devices.push_back(unirender::Scene::DeviceType::CPU);
+			m_devices.push_back(pragma::scenekit::Scene::DeviceType::CPU);
 		else if(ustring::compare<std::string>(strDeviceType, "gpu", false))
-			m_devices.push_back(unirender::Scene::DeviceType::GPU);
+			m_devices.push_back(pragma::scenekit::Scene::DeviceType::GPU);
 		else if(ustring::compare<std::string>(strDeviceType, "combined", false)) {
-			m_devices.push_back(unirender::Scene::DeviceType::GPU);
-			m_devices.push_back(unirender::Scene::DeviceType::CPU);
+			m_devices.push_back(pragma::scenekit::Scene::DeviceType::GPU);
+			m_devices.push_back(pragma::scenekit::Scene::DeviceType::CPU);
 		}
 	}
 	if(m_devices.empty())
-		m_devices.push_back(unirender::Scene::DeviceType::GPU);
+		m_devices.push_back(pragma::scenekit::Scene::DeviceType::GPU);
 
 	util::minimize_window_to_tray();
 	util::CommandManager::StartAsync();
@@ -304,7 +300,7 @@ RTJobManager::~RTJobManager()
 {
 	util::CommandManager::Join();
 	m_devices.clear();
-	unirender::Renderer::Close();
+	pragma::scenekit::Renderer::Close();
 
 	g_logger = nullptr;
 	spdlog::shutdown();
@@ -468,13 +464,13 @@ void RTJobManager::UpdateJob(DeviceInfo &devInfo)
 
 		g_logger->info("Saving images...");
 		std::optional<std::string> errMsg {};
-		if(m_renderMode == unirender::Scene::RenderMode::BakeDiffuseLighting || m_renderMode == unirender::Scene::RenderMode::BakeDiffuseLightingSeparate) {
+		if(m_renderMode == pragma::scenekit::Scene::RenderMode::BakeDiffuseLighting || m_renderMode == pragma::scenekit::Scene::RenderMode::BakeDiffuseLightingSeparate) {
 			struct OutputImageInfo {
 				std::string suffix = "";
 				std::shared_ptr<uimg::ImageBuffer> imgBuf;
 			};
 			std::vector<OutputImageInfo> outputImageInfos;
-			if(m_renderMode == unirender::Scene::RenderMode::BakeDiffuseLighting)
+			if(m_renderMode == pragma::scenekit::Scene::RenderMode::BakeDiffuseLighting)
 				outputImageInfos.push_back({"", imgBuf});
 			else {
 				outputImageInfos.push_back({"_direct", images["DiffuseDirect"]});
@@ -589,7 +585,7 @@ void RTJobManager::PrintHelp()
 	g_logger->info(ss.str());
 }
 
-void RTJobManager::PrintHeader(const unirender::Scene::CreateInfo &createInfo, const unirender::Scene::SceneInfo &sceneInfo)
+void RTJobManager::PrintHeader(const pragma::scenekit::Scene::CreateInfo &createInfo, const pragma::scenekit::Scene::SceneInfo &sceneInfo)
 {
 	g_logger->info("Header Info:");
 	if(createInfo.samples.has_value())
@@ -618,7 +614,7 @@ void RTJobManager::PrintHeader(const unirender::Scene::CreateInfo &createInfo, c
 	g_logger->info("Max transmission bounces: {}", sceneInfo.maxTransmissionBounces);
 }
 
-static unirender::PMesh create_test_box_mesh(unirender::Scene &rtScene, float r = 50.f)
+static pragma::scenekit::PMesh create_test_box_mesh(pragma::scenekit::Scene &rtScene, float r = 50.f)
 {
 	Vector3 cmin {-r, -r, -r};
 	Vector3 cmax {r, r, r};
@@ -667,7 +663,7 @@ static unirender::PMesh create_test_box_mesh(unirender::Scene &rtScene, float r 
 
 	auto numVerts = verts.size();
 	auto numTris = verts.size() / 3;
-	auto mesh = unirender::Mesh::Create("testBox", numVerts, numTris, unirender::Mesh::Flags::None);
+	auto mesh = pragma::scenekit::Mesh::Create("testBox", numVerts, numTris, pragma::scenekit::Mesh::Flags::None);
 	for(auto &v : verts)
 		mesh->AddVertex(v, {}, {}, {});
 	for(auto i = 0; i < verts.size(); i += 3)
@@ -696,12 +692,12 @@ bool RTJobManager::StartJob(const std::string &jobName, DeviceInfo &devInfo)
 	ds->SetOffset(0);
 	f->Read(ds->GetData(), sz);
 
-	unirender::Scene::RenderMode renderMode;
-	unirender::Scene::CreateInfo createInfo;
-	unirender::Scene::SerializationData serializationData;
-	unirender::Scene::SceneInfo sceneInfo;
+	pragma::scenekit::Scene::RenderMode renderMode;
+	pragma::scenekit::Scene::CreateInfo createInfo;
+	pragma::scenekit::Scene::SerializationData serializationData;
+	pragma::scenekit::Scene::SceneInfo sceneInfo;
 	uint32_t version;
-	auto success = unirender::Scene::ReadHeaderInfo(ds, renderMode, createInfo, serializationData, version, &sceneInfo);
+	auto success = pragma::scenekit::Scene::ReadHeaderInfo(ds, renderMode, createInfo, serializationData, version, &sceneInfo);
 	if(success) {
 		auto printHeader = (m_launchParams.find("-print_header") != m_launchParams.end());
 		if(printHeader) {
@@ -732,13 +728,13 @@ bool RTJobManager::StartJob(const std::string &jobName, DeviceInfo &devInfo)
 		if(itRenderMode != m_launchParams.end()) {
 			auto &strRenderMode = itRenderMode->second;
 			if(ustring::compare<std::string>(strRenderMode, "albedo", false))
-				renderMode = unirender::Scene::RenderMode::SceneAlbedo;
+				renderMode = pragma::scenekit::Scene::RenderMode::SceneAlbedo;
 			else if(ustring::compare<std::string>(strRenderMode, "depth", false))
-				renderMode = unirender::Scene::RenderMode::SceneDepth;
+				renderMode = pragma::scenekit::Scene::RenderMode::SceneDepth;
 			else if(ustring::compare<std::string>(strRenderMode, "normals", false))
-				renderMode = unirender::Scene::RenderMode::SceneNormals;
+				renderMode = pragma::scenekit::Scene::RenderMode::SceneNormals;
 			else if(ustring::compare<std::string>(strRenderMode, "image", false))
-				renderMode = unirender::Scene::RenderMode::RenderImage;
+				renderMode = pragma::scenekit::Scene::RenderMode::RenderImage;
 		}
 
 		auto itSamples = m_launchParams.find("-samples");
@@ -747,7 +743,7 @@ bool RTJobManager::StartJob(const std::string &jobName, DeviceInfo &devInfo)
 
 		auto itColorTransform = m_launchParams.find("-color_transform");
 		if(itColorTransform != m_launchParams.end()) {
-			createInfo.colorTransform = unirender::Scene::ColorTransformInfo {};
+			createInfo.colorTransform = pragma::scenekit::Scene::ColorTransformInfo {};
 			createInfo.colorTransform->config = itColorTransform->second;
 
 			auto itLook = m_launchParams.find("-color_transform_look");
@@ -757,7 +753,7 @@ bool RTJobManager::StartJob(const std::string &jobName, DeviceInfo &devInfo)
 
 		auto itDenoise = m_launchParams.find("-denoise");
 		if(itDenoise != m_launchParams.end())
-			createInfo.denoiseMode = util::to_boolean(itDenoise->second) ? unirender::Scene::DenoiseMode::AutoDetailed : unirender::Scene::DenoiseMode::AutoFast;
+			createInfo.denoiseMode = util::to_boolean(itDenoise->second) ? pragma::scenekit::Scene::DenoiseMode::AutoDetailed : pragma::scenekit::Scene::DenoiseMode::AutoFast;
 
 		auto itAdaptiveSampling = m_launchParams.find("-adaptiveSampling");
 		if(itAdaptiveSampling != m_launchParams.end()) {
@@ -788,9 +784,9 @@ bool RTJobManager::StartJob(const std::string &jobName, DeviceInfo &devInfo)
 
 		auto itLog = m_launchParams.find("-log");
 		if(itLog == m_launchParams.end() || util::to_boolean(itLog->second) == false)
-			unirender::set_log_handler();
+			pragma::scenekit::set_log_handler();
 		else {
-			unirender::set_log_handler([](const std::string &msg) { g_logger->info(msg); });
+			pragma::scenekit::set_log_handler([](const std::string &msg) { g_logger->info(msg); });
 		}
 
 		auto itRenderer = m_launchParams.find("-renderer");
@@ -803,8 +799,8 @@ bool RTJobManager::StartJob(const std::string &jobName, DeviceInfo &devInfo)
 
 	PrintHeader(createInfo, sceneInfo);
 
-	auto nodeManager = unirender::NodeManager::Create(); // Unused, since we only use shaders from serialized data
-	auto rtScene = success ? unirender::Scene::Create(*nodeManager, ds, ufile::get_path_from_filename(jobFileName), renderMode, createInfo) : nullptr;
+	auto nodeManager = pragma::scenekit::NodeManager::Create(); // Unused, since we only use shaders from serialized data
+	auto rtScene = success ? pragma::scenekit::Scene::Create(*nodeManager, ds, ufile::get_path_from_filename(jobFileName), renderMode, createInfo) : nullptr;
 	if(rtScene == nullptr) {
 		g_logger->error("Unable to create scene from serialized data!");
 		++m_numFailed;
@@ -828,13 +824,13 @@ bool RTJobManager::StartJob(const std::string &jobName, DeviceInfo &devInfo)
 	auto itCamType = m_launchParams.find("-camera_type");
 	if(itCamType != m_launchParams.end()) {
 		auto &strCamType = itCamType->second;
-		std::optional<unirender::Camera::CameraType> camType {};
+		std::optional<pragma::scenekit::Camera::CameraType> camType {};
 		if(ustring::compare<std::string>(strCamType, "orthographic", false))
-			camType = unirender::Camera::CameraType::Orthographic;
+			camType = pragma::scenekit::Camera::CameraType::Orthographic;
 		else if(ustring::compare<std::string>(strCamType, "perspective", false))
-			camType = unirender::Camera::CameraType::Perspective;
+			camType = pragma::scenekit::Camera::CameraType::Perspective;
 		else if(ustring::compare<std::string>(strCamType, "panorama", false))
-			camType = unirender::Camera::CameraType::Panorama;
+			camType = pragma::scenekit::Camera::CameraType::Panorama;
 		if(camType.has_value())
 			rtScene->GetCamera().SetCameraType(*camType);
 	}
@@ -842,15 +838,15 @@ bool RTJobManager::StartJob(const std::string &jobName, DeviceInfo &devInfo)
 	auto itPanoramaType = m_launchParams.find("-panorama_type");
 	if(itPanoramaType != m_launchParams.end()) {
 		auto &strPanoramaType = itPanoramaType->second;
-		std::optional<unirender::Camera::PanoramaType> panoramaType {};
+		std::optional<pragma::scenekit::Camera::PanoramaType> panoramaType {};
 		if(ustring::compare<std::string>(strPanoramaType, "equirectangular", false))
-			panoramaType = unirender::Camera::PanoramaType::Equirectangular;
+			panoramaType = pragma::scenekit::Camera::PanoramaType::Equirectangular;
 		else if(ustring::compare<std::string>(strPanoramaType, "fisheye_equidistant", false))
-			panoramaType = unirender::Camera::PanoramaType::FisheyeEquidistant;
+			panoramaType = pragma::scenekit::Camera::PanoramaType::FisheyeEquidistant;
 		else if(ustring::compare<std::string>(strPanoramaType, "fisheye_equisolid", false))
-			panoramaType = unirender::Camera::PanoramaType::FisheyeEquisolid;
+			panoramaType = pragma::scenekit::Camera::PanoramaType::FisheyeEquisolid;
 		else if(ustring::compare<std::string>(strPanoramaType, "mirrorball", false))
-			panoramaType = unirender::Camera::PanoramaType::Mirrorball;
+			panoramaType = pragma::scenekit::Camera::PanoramaType::Mirrorball;
 		if(panoramaType.has_value())
 			rtScene->GetCamera().SetPanoramaType(*panoramaType);
 	}
@@ -884,11 +880,11 @@ bool RTJobManager::StartJob(const std::string &jobName, DeviceInfo &devInfo)
 	/*{
 		// Cube test
 		auto mesh = create_test_box_mesh(*rtScene,1500.f);
-		//auto shader = unirender::Shader::Create<unirender::ShaderColorTest>(*rtScene,"testBoxShader");;
-		auto shader = unirender::Shader::Create<unirender::ShaderVolumeScatter>(*rtScene,"testVolScatter");
+		//auto shader = pragma::scenekit::Shader::Create<pragma::scenekit::ShaderColorTest>(*rtScene,"testBoxShader");;
+		auto shader = pragma::scenekit::Shader::Create<pragma::scenekit::ShaderVolumeScatter>(*rtScene,"testVolScatter");
 		
 		mesh->AddSubMeshShader(*shader);
-		auto o = unirender::Object::Create(*rtScene,*mesh);
+		auto o = pragma::scenekit::Object::Create(*rtScene,*mesh);
 		o->SetPos(Vector3{0,50,0});
 	}*/
 
@@ -896,7 +892,7 @@ bool RTJobManager::StartJob(const std::string &jobName, DeviceInfo &devInfo)
 
 	rtScene->Finalize();
 	std::string errMsg;
-	devInfo.renderer = unirender::Renderer::Create(*rtScene, createInfo.renderer, errMsg, unirender::Renderer::Flags::DisableDisplayDriver);
+	devInfo.renderer = pragma::scenekit::Renderer::Create(*rtScene, createInfo.renderer, errMsg, pragma::scenekit::Renderer::Flags::DisableDisplayDriver);
 	if(devInfo.renderer == nullptr) {
 		g_logger->error("Failed to create renderer: {}!", errMsg);
 		return false;
