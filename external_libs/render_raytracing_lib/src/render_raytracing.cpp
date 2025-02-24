@@ -6,6 +6,7 @@
 #include <sharedutils/util.h>
 #include <sharedutils/util_file.h>
 #include <sharedutils/magic_enum.hpp>
+#include <mathutil/uvec.h>
 #undef __UTIL_STRING_H__
 #include <sharedutils/util_string.h>
 #include <sharedutils/datastream.h>
@@ -17,12 +18,12 @@
 #include <spdlog/sinks/basic_file_sink.h>
 #include <fsys/filesystem.h>
 #include <fsys/ifile.hpp>
-#include <util_ocio.hpp>
 #include <sstream>
 #include <queue>
 #include <cstdlib>
 
 import pragma.scenekit;
+import pragma.ocio;
 
 #pragma optimize("", off)
 static std::shared_ptr<spdlog::logger> g_logger = nullptr;
