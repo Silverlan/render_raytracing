@@ -8,6 +8,13 @@ pr_add_dependency(${PROJ_NAME} vfilesystem TARGET PUBLIC)
 add_subdirectory(external_libs/render_raytracing_lib)
 pr_add_dependency(${PROJ_NAME} render_raytracing_lib TARGET PUBLIC)
 
+if(UNIX)
+    pr_add_external_dependency(${PROJ_NAME} tbb LIBRARY PUBLIC)
+    pr_add_external_dependency(${PROJ_NAME} boost_thread_shared LIBRARY PUBLIC)
+    pr_add_external_dependency(${PROJ_NAME} openexr_imath LIBRARY PUBLIC)
+    pr_add_external_dependency(${PROJ_NAME} openexr LIBRARY PUBLIC)
+endif()
+
 pr_add_headers(${PROJ_NAME} "include/")
 pr_add_sources(${PROJ_NAME} "src/")
 
