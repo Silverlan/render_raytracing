@@ -17,9 +17,6 @@ pr_add_third_party_dependency(${PROJ_NAME} openexr)
 find_package(tbb REQUIRED)
 pr_add_third_party_dependency(${PROJ_NAME} tbb)
 
-find_package(boost_rt REQUIRED)
-pr_add_third_party_dependency(${PROJ_NAME} boost_rt)
-
 pr_add_headers(${PROJ_NAME} "include/")
 pr_add_sources(${PROJ_NAME} "src/")
 
