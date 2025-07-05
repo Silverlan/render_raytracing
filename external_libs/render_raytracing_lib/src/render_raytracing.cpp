@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: (c) 2022 Silverlan <opensource@pragma-engine.com>
+// SPDX-License-Identifier: MIT
+
 #define UIMG_ENABLE_NVTT
 #include <util_image.hpp>
 #include <util_image_buffer.hpp>

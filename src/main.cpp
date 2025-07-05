@@ -1,3 +1,6 @@
+// SPDX-FileCopyrightText: (c) 2020 Silverlan <opensource@pragma-engine.com>
+// SPDX-License-Identifier: MIT
+
 #include <sharedutils/util_library.hpp>
 #include <sharedutils/util_path.hpp>
 #include <sharedutils/util.h>
