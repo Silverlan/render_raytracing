@@ -21,6 +21,7 @@
 #include <spdlog/sinks/basic_file_sink.h>
 #include <fsys/filesystem.h>
 #include <fsys/ifile.hpp>
+#include <udm.hpp>
 #include <sstream>
 #include <queue>
 #include <cstdlib>
@@ -28,7 +29,6 @@
 import pragma.scenekit;
 import pragma.ocio;
 
-#pragma optimize("", off)
 static std::shared_ptr<spdlog::logger> g_logger = nullptr;
 class RTJobManager {
   public:
@@ -685,23 +685,43 @@ static pragma::scenekit::PMesh create_test_box_mesh(pragma::scenekit::Scene &rtS
 bool RTJobManager::StartJob(const std::string &jobName, DeviceInfo &devInfo)
 {
 	auto jobFileName = jobName;
-	auto f = FileManager::OpenSystemFile(jobFileName.c_str(), "rb");
-	if(f == nullptr) {
-		g_logger->error("Job file '{}' not found!", jobFileName);
+
+	auto jobFileNameBin = jobFileName +'.' +std::string {pragma::scenekit::Scene::PRT_EXTENSION_BINARY};
+	if(filemanager::exists_system(jobFileNameBin))
+		jobFileName = jobFileNameBin;
+	else {
+		auto jobFileNameAscii = jobFileName +'.' +std::string {pragma::scenekit::Scene::PRT_EXTENSION_ASCII};
+		if(filemanager::exists_system(jobFileNameAscii))
+			jobFileName = jobFileNameAscii;
+		else
+			jobFileName = jobFileNameBin; // Fall back to binary for error messages
+	}
+
+	std::string err;
+	auto f = filemanager::open_system_file(jobFileName, filemanager::FileMode::Read | filemanager::FileMode::Binary, &err);
+	if (!f) {
+		g_logger->error("Failed to open file '{}': {}", jobFileName, err);
 		++m_numFailed;
 		return false;
 	}
-	auto sz = f->GetSize();
-	DataStream ds {static_cast<uint32_t>(sz)};
-	ds->SetOffset(0);
-	f->Read(ds->GetData(), sz);
+
+	std::shared_ptr<udm::Data> data {};
+	try {
+		auto file = std::make_unique<fsys::File>(f);
+		data = udm::Data::Load(std::move(file));
+	}
+	catch (const udm::Exception &e) {
+		g_logger->error("Failed to load job file '{}': {}", jobFileName, e.what());
+		++m_numFailed;
+		return false;
+	}
 
 	pragma::scenekit::Scene::RenderMode renderMode;
 	pragma::scenekit::Scene::CreateInfo createInfo;
 	pragma::scenekit::Scene::SerializationData serializationData;
 	pragma::scenekit::Scene::SceneInfo sceneInfo;
 	uint32_t version;
-	auto success = pragma::scenekit::Scene::ReadHeaderInfo(ds, renderMode, createInfo, serializationData, version, &sceneInfo);
+	auto success = pragma::scenekit::Scene::ReadHeaderInfo(data->GetAssetData(), renderMode, createInfo, serializationData, version, &sceneInfo);
 	if(success) {
 		auto printHeader = (m_launchParams.find("-print_header") != m_launchParams.end());
 		if(printHeader) {
@@ -804,7 +824,7 @@ bool RTJobManager::StartJob(const std::string &jobName, DeviceInfo &devInfo)
 	PrintHeader(createInfo, sceneInfo);
 
 	auto nodeManager = pragma::scenekit::NodeManager::Create(); // Unused, since we only use shaders from serialized data
-	auto rtScene = success ? pragma::scenekit::Scene::Create(*nodeManager, ds, ufile::get_path_from_filename(jobFileName), renderMode, createInfo) : nullptr;
+	auto rtScene = success ? pragma::scenekit::Scene::Create(*nodeManager, data->GetAssetData(), ufile::get_path_from_filename(jobFileName), renderMode, createInfo) : nullptr;
 	if(rtScene == nullptr) {
 		g_logger->error("Unable to create scene from serialized data!");
 		++m_numFailed;
