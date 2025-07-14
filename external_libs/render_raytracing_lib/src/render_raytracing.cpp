@@ -686,11 +686,14 @@ bool RTJobManager::StartJob(const std::string &jobName, DeviceInfo &devInfo)
 {
 	auto jobFileName = jobName;
 
-	auto jobFileNameBin = jobFileName +'.' +std::string {pragma::scenekit::Scene::PRT_EXTENSION_BINARY};
+	// Using pragma::scenekit::Scene::PRT_EXTENSION_BINARY causes linker errors with msvc
+	auto jobFileNameBin = jobFileName +'.' +std::string {"prt_b"};
+	// auto jobFileNameBin = jobFileName +'.' +std::string {pragma::scenekit::Scene::PRT_EXTENSION_BINARY};
 	if(filemanager::exists_system(jobFileNameBin))
 		jobFileName = jobFileNameBin;
 	else {
-		auto jobFileNameAscii = jobFileName +'.' +std::string {pragma::scenekit::Scene::PRT_EXTENSION_ASCII};
+		auto jobFileNameAscii = jobFileName +'.' +std::string {"prt"};
+		// auto jobFileNameAscii = jobFileName +'.' +std::string {pragma::scenekit::Scene::PRT_EXTENSION_ASCII};
 		if(filemanager::exists_system(jobFileNameAscii))
 			jobFileName = jobFileNameAscii;
 		else
