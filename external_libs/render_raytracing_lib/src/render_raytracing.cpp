@@ -109,6 +109,7 @@ RTJobManager::RTJobManager(std::unordered_map<std::string, std::string> &&launch
 	conSink->set_level(spdlog::level::info);
 
 	auto logFilePath = ufile::get_path_from_filename(inputFileName) + "log.txt";
+	logFilePath = util::FilePath(filemanager::get_program_write_path(), logFilePath).GetString();
 	auto fileSink = std::make_shared<spdlog::sinks::basic_file_sink_mt>(logFilePath, true);
 	fileSink->set_level(spdlog::level::trace);
 
