@@ -8,6 +8,17 @@
 #include <fsys/filesystem.h>
 #include <cassert>
 
+#ifdef __linux__
+#include <OpenImageDenoise/oidn.h>
+void fix_oidn_segfault() {
+	// We need to force-initialize the oidn CUDA context by calling any oidn CUDA function to avoid a segfault later on
+	// when cycles tries to use oidn.
+	// The reason for this is unknown. For more information, see CMakeLists.txt.
+	int n;
+	oidnIsCUDADeviceSupported(n);
+}
+#endif
+
 int main(int argc, char *argv[])
 {
 	auto programPath = util::Path::CreatePath(util::get_program_path());
@@ -72,6 +83,10 @@ int main(int argc, char *argv[])
 	FileManager::FindFiles("addons/*", nullptr, &addons);
 	for(auto &addon : addons)
 		FileManager::AddCustomMountDirectory(("addons/" + addon).c_str());
+
+#ifdef __linux__
+	fix_oidn_segfault();
+#endif
 
 	std::string err;
 	auto lib = util::Library::Load(libPath.GetString(), {path.GetString()}, &err);

@@ -28,6 +28,18 @@ else()
     set_target_properties(${PROJ_NAME} PROPERTIES VS_DEBUGGER_COMMAND "${CMAKE_INSTALL_PREFIX}/${BINARY_OUTPUT_DIR}/${PROJ_NAME}.exe")
 endif()
 
+if(UNIX)
+    # HACK / FIX: The cycles library uses OpenImageDenoise with CUDA for denoising.
+    # For some unknown reason, this causes a segfault when OpenImageDenoise calls cuInit().
+    # If we call any OpenImageDenoise function that initializes the CUDA context
+    # *before* loading the cycles module, this crash does not happen.
+    # To do so, we create a dependency to OpenImageDenoise and call oidnIsCUDADeviceSupported.
+    # (but any other oidn CUDA function would do as well.)
+    # This problem only occurs on Linux.
+    list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_LIST_DIR}/cmake/modules")
+    pr_add_third_party_dependency(${PROJ_NAME} openimagedenoise)
+endif()
+
 pr_set_target_folder(render_raytracing_lib tools)
 
 pr_finalize(${PROJ_NAME} FOLDER tools)
