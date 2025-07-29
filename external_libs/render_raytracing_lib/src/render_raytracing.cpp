@@ -334,9 +334,13 @@ void RTJobManager::CollectJobs()
 		std::string ext;
 		ufile::get_extension(m_inputFileName, &ext);
 		if(ustring::compare<std::string>(ext, "txt", false)) {
-			auto f = FileManager::OpenSystemFile(m_inputFileName.c_str(), "r");
-			if(f == nullptr)
+			auto f = filemanager::open_file(m_inputFileName, filemanager::FileMode::Read);
+			if (!f)
+				f = filemanager::open_system_file(m_inputFileName, filemanager::FileMode::Read);
+			if(f == nullptr) {
+				g_logger->error("Failed to open job list '{}'!", m_inputFileName);
 				return;
+			}
 			auto contents = f->ReadString();
 			ustring::explode(contents, "\n", lines);
 		}
@@ -467,7 +471,7 @@ void RTJobManager::UpdateJob(DeviceInfo &devInfo)
 		auto images = job.GetResult().images;
 		auto imgBuf = images.begin()->second;
 
-		g_logger->info("Saving images...");
+		g_logger->info("Saving images to '{}'...", devInfo.outputPath.GetString());
 		std::optional<std::string> errMsg {};
 		if(m_renderMode == pragma::scenekit::Scene::RenderMode::BakeDiffuseLighting || m_renderMode == pragma::scenekit::Scene::RenderMode::BakeDiffuseLightingSeparate) {
 			struct OutputImageInfo {
@@ -690,19 +694,21 @@ bool RTJobManager::StartJob(const std::string &jobName, DeviceInfo &devInfo)
 	// Using pragma::scenekit::Scene::PRT_EXTENSION_BINARY causes linker errors with msvc
 	auto jobFileNameBin = jobFileName +'.' +std::string {"prt_b"};
 	// auto jobFileNameBin = jobFileName +'.' +std::string {pragma::scenekit::Scene::PRT_EXTENSION_BINARY};
-	if(filemanager::exists_system(jobFileNameBin))
+	if(filemanager::exists(jobFileNameBin) || filemanager::exists_system(jobFileNameBin))
 		jobFileName = jobFileNameBin;
 	else {
 		auto jobFileNameAscii = jobFileName +'.' +std::string {"prt"};
 		// auto jobFileNameAscii = jobFileName +'.' +std::string {pragma::scenekit::Scene::PRT_EXTENSION_ASCII};
-		if(filemanager::exists_system(jobFileNameAscii))
+		if(filemanager::exists(jobFileNameAscii) || filemanager::exists_system(jobFileNameAscii))
 			jobFileName = jobFileNameAscii;
 		else
 			jobFileName = jobFileNameBin; // Fall back to binary for error messages
 	}
 
 	std::string err;
-	auto f = filemanager::open_system_file(jobFileName, filemanager::FileMode::Read | filemanager::FileMode::Binary, &err);
+	auto f = filemanager::open_file(jobFileName, filemanager::FileMode::Read | filemanager::FileMode::Binary, &err);
+	if (!f)
+		f = filemanager::open_system_file(jobFileName, filemanager::FileMode::Read | filemanager::FileMode::Binary, &err);
 	if (!f) {
 		g_logger->error("Failed to open file '{}': {}", jobFileName, err);
 		++m_numFailed;
@@ -741,7 +747,11 @@ bool RTJobManager::StartJob(const std::string &jobName, DeviceInfo &devInfo)
 		//else
 		fileName += ".png";
 		auto &outputPath = devInfo.outputPath;
-		outputPath = util::Path::CreatePath(ufile::get_path_from_filename(jobFileName));
+		auto absJobFilePath = jobFileName;
+		auto *fptrReal = dynamic_cast<VFilePtrInternalReal*>(f.get());
+		if (fptrReal)
+			absJobFilePath = fptrReal->GetPath();
+		outputPath = util::Path::CreatePath(ufile::get_path_from_filename(absJobFilePath));
 		outputPath += ufile::get_file_from_filename(fileName); // TODO: Only write file name in the first place
 
 		if(FileManager::ExistsSystem(outputPath.GetString())) {
