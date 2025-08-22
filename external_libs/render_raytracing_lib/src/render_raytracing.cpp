@@ -995,4 +995,3 @@ DLLEXPORT int render_raytracing(int argc, char *argv[])
 	return EXIT_SUCCESS;
 }
 };
-#pragma optimize("", on)
