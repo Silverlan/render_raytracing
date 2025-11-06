@@ -17,8 +17,7 @@ pr_add_third_party_dependency(${PROJ_NAME} openexr)
 find_package(tbb REQUIRED)
 pr_add_third_party_dependency(${PROJ_NAME} tbb)
 
-pr_add_headers(${PROJ_NAME} "include/")
-pr_add_sources(${PROJ_NAME} "src/")
+pr_init_module(${PROJ_NAME})
 
 if(UNIX)
     target_link_libraries(${PROJ_NAME} PRIVATE "dl")
