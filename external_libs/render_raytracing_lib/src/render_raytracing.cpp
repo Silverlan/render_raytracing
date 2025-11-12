@@ -1,29 +1,6 @@
 // SPDX-FileCopyrightText: (c) 2022 Silverlan <opensource@pragma-engine.com>
 // SPDX-License-Identifier: MIT
 
-#define UIMG_ENABLE_NVTT
-#include <util_image.hpp>
-#include <util_image_buffer.hpp>
-#include <util_texture_info.hpp>
-#include <sharedutils/util_command_manager.hpp>
-#include <sharedutils/util.h>
-#include <sharedutils/util_file.h>
-#include <sharedutils/magic_enum.hpp>
-#include <mathutil/uvec.h>
-#undef __UTIL_STRING_H__
-#include <sharedutils/util_string.h>
-#include <sharedutils/datastream.h>
-#include <sharedutils/util_parallel_job.hpp>
-#include <sharedutils/util_path.hpp>
-#include <spdlog/spdlog.h>
-#include <spdlog/logger.h>
-#include <spdlog/sinks/stdout_color_sinks.h>
-#include <spdlog/sinks/basic_file_sink.h>
-#include <fsys/filesystem.h>
-#include <fsys/ifile.hpp>
-#include <udm.hpp>
-#include <sstream>
-#include <queue>
 #include <cstdlib>
 
 import pragma.scenekit;

@@ -1,11 +1,6 @@
 // SPDX-FileCopyrightText: (c) 2020 Silverlan <opensource@pragma-engine.com>
 // SPDX-License-Identifier: MIT
 
-#include <sharedutils/util_library.hpp>
-#include <sharedutils/util_path.hpp>
-#include <sharedutils/util.h>
-#include <sharedutils/util_string.h>
-#include <fsys/filesystem.h>
 #include <cassert>
 
 #ifdef __linux__
@@ -18,6 +13,9 @@ void fix_oidn_segfault() {
 	oidnIsCUDADeviceSupported(n);
 }
 #endif
+#include <cstdlib>
+
+import pragma.filesystem;
 
 int main(int argc, char *argv[])
 {
