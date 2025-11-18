@@ -312,7 +312,7 @@ void RTJobManager::CollectJobs()
 		ufile::get_extension(m_inputFileName, &ext);
 		if(ustring::compare<std::string>(ext, "txt", false)) {
 			auto f = filemanager::open_file(m_inputFileName, filemanager::FileMode::Read);
-			if (!f)
+			if(!f)
 				f = filemanager::open_system_file(m_inputFileName, filemanager::FileMode::Read);
 			if(f == nullptr) {
 				g_logger->error("Failed to open job list '{}'!", m_inputFileName);
@@ -618,18 +618,42 @@ static pragma::scenekit::PMesh create_test_box_mesh(pragma::scenekit::Scene &rtS
 	  Vector3(min.x, max.y, max.z)  // 7
 	};
 	std::vector<Vector3> verts {
-	  uniqueVertices[0], uniqueVertices[6], uniqueVertices[7], // 1
-	  uniqueVertices[0], uniqueVertices[7], uniqueVertices[5], // 1
-	  uniqueVertices[3], uniqueVertices[0], uniqueVertices[5], // 2
-	  uniqueVertices[3], uniqueVertices[1], uniqueVertices[0], // 2
-	  uniqueVertices[2], uniqueVertices[0], uniqueVertices[1], // 3
-	  uniqueVertices[2], uniqueVertices[6], uniqueVertices[0], // 3
-	  uniqueVertices[7], uniqueVertices[6], uniqueVertices[2], // 4
-	  uniqueVertices[4], uniqueVertices[7], uniqueVertices[2], // 4
-	  uniqueVertices[4], uniqueVertices[1], uniqueVertices[3], // 5
-	  uniqueVertices[1], uniqueVertices[4], uniqueVertices[2], // 5
-	  uniqueVertices[4], uniqueVertices[3], uniqueVertices[5], // 6
-	  uniqueVertices[4], uniqueVertices[5], uniqueVertices[7], // 6
+	  uniqueVertices[0],
+	  uniqueVertices[6],
+	  uniqueVertices[7], // 1
+	  uniqueVertices[0],
+	  uniqueVertices[7],
+	  uniqueVertices[5], // 1
+	  uniqueVertices[3],
+	  uniqueVertices[0],
+	  uniqueVertices[5], // 2
+	  uniqueVertices[3],
+	  uniqueVertices[1],
+	  uniqueVertices[0], // 2
+	  uniqueVertices[2],
+	  uniqueVertices[0],
+	  uniqueVertices[1], // 3
+	  uniqueVertices[2],
+	  uniqueVertices[6],
+	  uniqueVertices[0], // 3
+	  uniqueVertices[7],
+	  uniqueVertices[6],
+	  uniqueVertices[2], // 4
+	  uniqueVertices[4],
+	  uniqueVertices[7],
+	  uniqueVertices[2], // 4
+	  uniqueVertices[4],
+	  uniqueVertices[1],
+	  uniqueVertices[3], // 5
+	  uniqueVertices[1],
+	  uniqueVertices[4],
+	  uniqueVertices[2], // 5
+	  uniqueVertices[4],
+	  uniqueVertices[3],
+	  uniqueVertices[5], // 6
+	  uniqueVertices[4],
+	  uniqueVertices[5],
+	  uniqueVertices[7], // 6
 	};
 	std::vector<Vector3> faceNormals {Vector3(-1, 0, 0), Vector3(-1, 0, 0), Vector3(0, 0, -1), Vector3(0, 0, -1), Vector3(0, -1, 0), Vector3(0, -1, 0), Vector3(0, 0, 1), Vector3(0, 0, 1), Vector3(1, 0, 0), Vector3(1, 0, 0), Vector3(0, 1, 0), Vector3(0, 1, 0)};
 	std::vector<::Vector2> uvs {
@@ -669,12 +693,12 @@ bool RTJobManager::StartJob(const std::string &jobName, DeviceInfo &devInfo)
 	auto jobFileName = jobName;
 
 	// Using pragma::scenekit::Scene::PRT_EXTENSION_BINARY causes linker errors with msvc
-	auto jobFileNameBin = jobFileName +'.' +std::string {"prt_b"};
+	auto jobFileNameBin = jobFileName + '.' + std::string {"prt_b"};
 	// auto jobFileNameBin = jobFileName +'.' +std::string {pragma::scenekit::Scene::PRT_EXTENSION_BINARY};
 	if(filemanager::exists(jobFileNameBin) || filemanager::exists_system(jobFileNameBin))
 		jobFileName = jobFileNameBin;
 	else {
-		auto jobFileNameAscii = jobFileName +'.' +std::string {"prt"};
+		auto jobFileNameAscii = jobFileName + '.' + std::string {"prt"};
 		// auto jobFileNameAscii = jobFileName +'.' +std::string {pragma::scenekit::Scene::PRT_EXTENSION_ASCII};
 		if(filemanager::exists(jobFileNameAscii) || filemanager::exists_system(jobFileNameAscii))
 			jobFileName = jobFileNameAscii;
@@ -684,9 +708,9 @@ bool RTJobManager::StartJob(const std::string &jobName, DeviceInfo &devInfo)
 
 	std::string err;
 	auto f = filemanager::open_file(jobFileName, filemanager::FileMode::Read | filemanager::FileMode::Binary, &err);
-	if (!f)
+	if(!f)
 		f = filemanager::open_system_file(jobFileName, filemanager::FileMode::Read | filemanager::FileMode::Binary, &err);
-	if (!f) {
+	if(!f) {
 		g_logger->error("Failed to open file '{}': {}", jobFileName, err);
 		++m_numFailed;
 		return false;
@@ -697,7 +721,7 @@ bool RTJobManager::StartJob(const std::string &jobName, DeviceInfo &devInfo)
 		auto file = std::make_unique<fsys::File>(f);
 		data = udm::Data::Load(std::move(file));
 	}
-	catch (const udm::Exception &e) {
+	catch(const udm::Exception &e) {
 		g_logger->error("Failed to load job file '{}': {}", jobFileName, e.what());
 		++m_numFailed;
 		return false;
@@ -725,8 +749,8 @@ bool RTJobManager::StartJob(const std::string &jobName, DeviceInfo &devInfo)
 		fileName += ".png";
 		auto &outputPath = devInfo.outputPath;
 		auto absJobFilePath = jobFileName;
-		auto *fptrReal = dynamic_cast<VFilePtrInternalReal*>(f.get());
-		if (fptrReal)
+		auto *fptrReal = dynamic_cast<VFilePtrInternalReal *>(f.get());
+		if(fptrReal)
 			absJobFilePath = fptrReal->GetPath();
 		outputPath = util::Path::CreatePath(ufile::get_path_from_filename(absJobFilePath));
 		outputPath += ufile::get_file_from_filename(fileName); // TODO: Only write file name in the first place
