@@ -20,29 +20,29 @@ import pragma.filesystem;
 
 int main(int argc, char *argv[])
 {
-	auto programPath = util::Path::CreatePath(util::get_program_path());
+	auto programPath = pragma::util::Path::CreatePath(pragma::util::get_program_path());
 	programPath.PopBack(); // Go up from "bin" directory
 	auto strPath = programPath.GetString();
 	assert(strPath.length() > 0);
 	strPath.pop_back(); // Pop last character (slash)
-	util::set_program_path(strPath);
+	pragma::util::set_program_path(strPath);
 
 	std::optional<std::string> userDataDir;
 	std::vector<std::string> resourceDirs;
 
 	for(size_t i = 0; i < argc; ++i) {
 		std::vector<std::string> kv;
-		ustring::explode(argv[i], "=", kv);
+		pragma::string::explode(argv[i], "=", kv);
 
 		if(kv.size() != 2)
 			continue;
 
-		if(ustring::compare<std::string>(kv[0], "-user_data_dir", false)) {
+		if(pragma::string::compare<std::string>(kv[0], "-user_data_dir", false)) {
 			userDataDir = kv[1];
 			continue;
 		}
 
-		if(ustring::compare<std::string>(kv[0], "-resource_dir", false)) {
+		if(pragma::string::compare<std::string>(kv[0], "-resource_dir", false)) {
 			resourceDirs.push_back(kv[1]);
 			continue;
 		}
@@ -51,44 +51,44 @@ int main(int argc, char *argv[])
 	// Initialize file system
 	// This should match the behavior in Engine::Initialize
 	if(userDataDir)
-		filemanager::set_absolute_root_path(*userDataDir, 0);
+		pragma::fs::set_absolute_root_path(*userDataDir, 0);
 	else
-		filemanager::set_absolute_root_path(util::get_program_path());
+		pragma::fs::set_absolute_root_path(pragma::util::get_program_path());
 
-	filemanager::set_use_file_index_cache(true);
+	pragma::fs::set_use_file_index_cache(true);
 
 	if(userDataDir)
-		filemanager::add_secondary_absolute_read_only_root_path("core", util::get_program_path());
+		pragma::fs::add_secondary_absolute_read_only_root_path("core", pragma::util::get_program_path());
 
 	size_t resDirIdx = 1;
 	for(auto &resourceDir : resourceDirs) {
-		filemanager::add_secondary_absolute_read_only_root_path("resource" + std::to_string(resDirIdx), resourceDir, resDirIdx /* priority */);
+		pragma::fs::add_secondary_absolute_read_only_root_path("resource" + std::to_string(resDirIdx), resourceDir, resDirIdx /* priority */);
 		++resDirIdx;
 	}
 	//
 
-	auto path = util::DirPath(FileManager::GetRootPath(), "modules/unirender");
+	auto path = pragma::util::DirPath(pragma::fs::get_root_path(), "modules/unirender");
 
-	auto libPath = util::DirPath(FileManager::GetProgramPath());
+	auto libPath = pragma::util::DirPath(pragma::fs::get_program_path());
 #ifdef _WIN32
-	libPath = util::FilePath(libPath, "bin/render_raytracing_lib");
+	libPath = pragma::util::FilePath(libPath, "bin/render_raytracing_lib");
 #else
-	libPath = util::FilePath(libPath, "lib/librender_raytracing_lib");
+	libPath = pragma::util::FilePath(libPath, "lib/librender_raytracing_lib");
 #endif
 
 	// TODO: Use same mount mechanism as core engine
-	FileManager::AddCustomMountDirectory("materials");
+	pragma::fs::add_custom_mount_directory("materials");
 	std::vector<std::string> addons {};
-	FileManager::FindFiles("addons/*", nullptr, &addons);
+	pragma::fs::find_files("addons/*", nullptr, &addons);
 	for(auto &addon : addons)
-		FileManager::AddCustomMountDirectory(("addons/" + addon).c_str());
+		pragma::fs::add_custom_mount_directory(("addons/" + addon).c_str());
 
 #ifdef __linux__
 	fix_oidn_segfault();
 #endif
 
 	std::string err;
-	auto lib = util::Library::Load(libPath.GetString(), {path.GetString()}, &err);
+	auto lib = pragma::util::Library::Load(libPath.GetString(), {path.GetString()}, &err);
 	if(lib == nullptr) {
 		std::cout << "Unable to load library '" << libPath.GetString() << "': " << err << std::endl;
 		return EXIT_FAILURE;

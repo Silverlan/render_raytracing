@@ -16,11 +16,11 @@ class RTJobManager {
 	struct DeviceInfo {
 		DeviceInfo(pragma::scenekit::Scene::DeviceType deviceType) : deviceType {deviceType} {}
 		pragma::scenekit::Scene::DeviceType deviceType {};
-		std::optional<util::ParallelJob<uimg::ImageLayerSet>> job {};
+		std::optional<pragma::util::ParallelJob<pragma::image::ImageLayerSet>> job {};
 		std::shared_ptr<pragma::scenekit::Renderer> renderer = nullptr;
 		std::shared_ptr<pragma::scenekit::Scene> rtScene = nullptr;
 		std::chrono::high_resolution_clock::time_point startTime {};
-		util::Path outputPath {};
+		pragma::util::Path outputPath {};
 	};
 	static std::shared_ptr<RTJobManager> Launch(int argc, char *argv[]);
 	RTJobManager(const RTJobManager &) = delete;
@@ -75,7 +75,7 @@ std::shared_ptr<RTJobManager> RTJobManager::Launch(int argc, char *argv[])
 	--argc;
 	++argv;
 
-	auto launchParams = util::get_launch_parameters(argc, argv);
+	auto launchParams = pragma::util::get_launch_parameters(argc, argv);
 	auto itJob = launchParams.find("-job");
 	return std::shared_ptr<RTJobManager> {new RTJobManager {std::move(launchParams), (itJob != launchParams.end()) ? itJob->second : ""}};
 }
@@ -86,7 +86,7 @@ RTJobManager::RTJobManager(std::unordered_map<std::string, std::string> &&launch
 	conSink->set_level(spdlog::level::info);
 
 	auto logFilePath = ufile::get_path_from_filename(inputFileName) + "log.txt";
-	logFilePath = util::FilePath(filemanager::get_program_write_path(), logFilePath).GetString();
+	logFilePath = pragma::util::FilePath(pragma::fs::get_program_write_path(), logFilePath).GetString();
 	auto fileSink = std::make_shared<spdlog::sinks::basic_file_sink_mt>(logFilePath, true);
 	fileSink->set_level(spdlog::level::trace);
 
@@ -97,9 +97,9 @@ RTJobManager::RTJobManager(std::unordered_map<std::string, std::string> &&launch
 	g_logger = logger;
 
 	// Don't go into auto-sleep mode while the program is running
-	util::set_prevent_os_sleep_mode(true);
+	pragma::util::set_prevent_os_sleep_mode(true);
 
-	/*auto kernelPath = util::Path::CreatePath(util::get_program_path());
+	/*auto kernelPath = pragma::util::Path::CreatePath(pragma::util::get_program_path());
 	kernelPath += "modules/cycles";
 	auto itKernelPath = m_launchParams.find("-kernel_path");
 	if(itKernelPath != m_launchParams.end())
@@ -112,11 +112,11 @@ RTJobManager::RTJobManager(std::unordered_map<std::string, std::string> &&launch
 
 	auto itExposure = m_launchParams.find("-exposure");
 	if(itExposure != m_launchParams.end())
-		SetExposure(util::to_float(itExposure->second));
+		SetExposure(pragma::util::to_float(itExposure->second));
 
 	auto itGamma = m_launchParams.find("-gamma");
 	if(itGamma != m_launchParams.end())
-		SetGamma(util::to_float(itGamma->second));
+		SetGamma(pragma::util::to_float(itGamma->second));
 
 	auto itHdr = m_launchParams.find("-hdr");
 	if(itHdr != m_launchParams.end())
@@ -132,7 +132,7 @@ RTJobManager::RTJobManager(std::unordered_map<std::string, std::string> &&launch
 	if(itToneMapping != m_launchParams.end())
 	{
 		auto &toneMapping = itToneMapping->second;
-		if(ustring::compare(toneMapping,"none",false))
+		if(pragma::string::compare(toneMapping,"none",false))
 			m_toneMapping = ToneMapping::None;
 	}
 #endif
@@ -140,11 +140,11 @@ RTJobManager::RTJobManager(std::unordered_map<std::string, std::string> &&launch
 	auto itDeviceType = m_launchParams.find("-device_type");
 	if(itDeviceType != m_launchParams.end()) {
 		auto &strDeviceType = itDeviceType->second;
-		if(ustring::compare<std::string>(strDeviceType, "cpu", false))
+		if(pragma::string::compare<std::string>(strDeviceType, "cpu", false))
 			m_devices.push_back(pragma::scenekit::Scene::DeviceType::CPU);
-		else if(ustring::compare<std::string>(strDeviceType, "gpu", false))
+		else if(pragma::string::compare<std::string>(strDeviceType, "gpu", false))
 			m_devices.push_back(pragma::scenekit::Scene::DeviceType::GPU);
-		else if(ustring::compare<std::string>(strDeviceType, "combined", false)) {
+		else if(pragma::string::compare<std::string>(strDeviceType, "combined", false)) {
 			m_devices.push_back(pragma::scenekit::Scene::DeviceType::GPU);
 			m_devices.push_back(pragma::scenekit::Scene::DeviceType::CPU);
 		}
@@ -152,15 +152,15 @@ RTJobManager::RTJobManager(std::unordered_map<std::string, std::string> &&launch
 	if(m_devices.empty())
 		m_devices.push_back(pragma::scenekit::Scene::DeviceType::GPU);
 
-	util::minimize_window_to_tray();
-	util::CommandManager::StartAsync();
+	pragma::util::minimize_window_to_tray();
+	pragma::util::CommandManager::StartAsync();
 
 	if(m_launchParams.find("-help") != m_launchParams.end()) {
 		PrintHelp();
 		return;
 	}
 
-	util::CommandManager::RegisterCommand("pause", [this](std::vector<std::string> args) {
+	pragma::util::CommandManager::RegisterCommand("pause", [this](std::vector<std::string> args) {
 		uint32_t numPaused = 0;
 		uint32_t numFailed = 0;
 		for(auto &dev : m_devices) {
@@ -175,7 +175,7 @@ RTJobManager::RTJobManager(std::unordered_map<std::string, std::string> &&launch
 		if(numFailed > 0)
 			g_logger->error("Failed to pause {} render processes!", numFailed);
 	});
-	util::CommandManager::RegisterCommand("resume", [this](std::vector<std::string> args) {
+	pragma::util::CommandManager::RegisterCommand("resume", [this](std::vector<std::string> args) {
 		uint32_t numResumed = 0;
 		uint32_t numFailed = 0;
 		for(auto &dev : m_devices) {
@@ -190,7 +190,7 @@ RTJobManager::RTJobManager(std::unordered_map<std::string, std::string> &&launch
 		if(numFailed > 0)
 			g_logger->error("Failed to resume {} render processes!", numFailed);
 	});
-	util::CommandManager::RegisterCommand("stop", [this](std::vector<std::string> args) {
+	pragma::util::CommandManager::RegisterCommand("stop", [this](std::vector<std::string> args) {
 		uint32_t numStopped = 0;
 		uint32_t numFailed = 0;
 		for(auto &dev : m_devices) {
@@ -205,7 +205,7 @@ RTJobManager::RTJobManager(std::unordered_map<std::string, std::string> &&launch
 		if(numFailed > 0)
 			g_logger->error("Failed to stop {} render processes!", numFailed);
 	});
-	util::CommandManager::RegisterCommand("preview", [this](std::vector<std::string> args) {
+	pragma::util::CommandManager::RegisterCommand("preview", [this](std::vector<std::string> args) {
 		uint32_t numStopped = 0;
 		uint32_t numFailed = 0;
 		for(auto &dev : m_devices) {
@@ -214,12 +214,12 @@ RTJobManager::RTJobManager(std::unordered_map<std::string, std::string> &&launch
 			std::string err;
 			auto filePath = dev.renderer->SaveRenderPreview("temp/", err);
 			if(filePath.has_value())
-				util::open_file_in_default_program(*filePath);
+				pragma::util::open_file_in_default_program(*filePath);
 			else
 				g_logger->error("Unable to save preview image: {}", err);
 		}
 	});
-	util::CommandManager::RegisterCommand("suspend", [this](std::vector<std::string> args) {
+	pragma::util::CommandManager::RegisterCommand("suspend", [this](std::vector<std::string> args) {
 		uint32_t numSuspended = 0;
 		uint32_t numFailed = 0;
 		for(auto &dev : m_devices) {
@@ -234,7 +234,7 @@ RTJobManager::RTJobManager(std::unordered_map<std::string, std::string> &&launch
 		if(numFailed > 0)
 			g_logger->error("Failed to suspend {} render processes!", numFailed);
 	});
-	util::CommandManager::RegisterCommand("export", [this](std::vector<std::string> args) {
+	pragma::util::CommandManager::RegisterCommand("export", [this](std::vector<std::string> args) {
 		uint32_t numExported = 0;
 		uint32_t numFailed = 0;
 		uint32_t devIdx = 0;
@@ -251,21 +251,21 @@ RTJobManager::RTJobManager(std::unordered_map<std::string, std::string> &&launch
 		if(numFailed > 0)
 			g_logger->error("Failed to export {} render processes!", numFailed);
 	});
-	util::CommandManager::RegisterCommand("shutdown", [this](std::vector<std::string> args) {
-		m_shutdownOnCompletion = args.empty() ? !m_shutdownOnCompletion : util::to_boolean(args[0]);
+	pragma::util::CommandManager::RegisterCommand("shutdown", [this](std::vector<std::string> args) {
+		m_shutdownOnCompletion = args.empty() ? !m_shutdownOnCompletion : pragma::util::to_boolean(args[0]);
 		if(m_shutdownOnCompletion)
 			g_logger->info("Auto-Shutdown enabled! Operating system will shut down when rendering has been completed.");
 		else
 			g_logger->info("Auto-Shutdown disabled");
 	});
-	util::CommandManager::RegisterCommand("autoclose", [this](std::vector<std::string> args) {
-		m_dontCloseOnCompletion = args.empty() ? !m_dontCloseOnCompletion : !util::to_boolean(args[0]);
+	pragma::util::CommandManager::RegisterCommand("autoclose", [this](std::vector<std::string> args) {
+		m_dontCloseOnCompletion = args.empty() ? !m_dontCloseOnCompletion : !pragma::util::to_boolean(args[0]);
 		if(m_dontCloseOnCompletion)
 			g_logger->info("Auto-Close disabled!");
 		else
 			g_logger->info("Auto-Close enabled!");
 	});
-	util::CommandManager::RegisterCommand("help", [this](std::vector<std::string> args) { PrintCommandHelp(); });
+	pragma::util::CommandManager::RegisterCommand("help", [this](std::vector<std::string> args) { PrintCommandHelp(); });
 
 	PrintCommandHelp();
 
@@ -280,7 +280,7 @@ RTJobManager::RTJobManager(std::unordered_map<std::string, std::string> &&launch
 
 RTJobManager::~RTJobManager()
 {
-	util::CommandManager::Join();
+	pragma::util::CommandManager::Join();
 	m_devices.clear();
 	pragma::scenekit::Renderer::Close();
 
@@ -310,16 +310,16 @@ void RTJobManager::CollectJobs()
 	if(m_inputFileName.empty() == false) {
 		std::string ext;
 		ufile::get_extension(m_inputFileName, &ext);
-		if(ustring::compare<std::string>(ext, "txt", false)) {
-			auto f = filemanager::open_file(m_inputFileName, filemanager::FileMode::Read);
+		if(pragma::string::compare<std::string>(ext, "txt", false)) {
+			auto f = pragma::fs::open_file(m_inputFileName, pragma::fs::FileMode::Read);
 			if(!f)
-				f = filemanager::open_system_file(m_inputFileName, filemanager::FileMode::Read);
+				f = pragma::fs::open_system_file(m_inputFileName, pragma::fs::FileMode::Read);
 			if(f == nullptr) {
 				g_logger->error("Failed to open job list '{}'!", m_inputFileName);
 				return;
 			}
 			auto contents = f->ReadString();
-			ustring::explode(contents, "\n", lines);
+			pragma::string::explode(contents, "\n", lines);
 		}
 		else
 			lines.push_back(m_inputFileName);
@@ -386,8 +386,8 @@ void RTJobManager::CollectJobs()
 
 void RTJobManager::Update()
 {
-	util::CommandManager::PollEvents();
-	if(util::CommandManager::ShouldExit()) {
+	pragma::util::CommandManager::PollEvents();
+	if(pragma::util::CommandManager::ShouldExit()) {
 		while(m_jobQueue.empty() == false)
 			m_jobQueue.pop();
 	}
@@ -408,31 +408,31 @@ void RTJobManager::UpdateJob(DeviceInfo &devInfo)
 		return;
 	auto &job = *devInfo.job;
 	if(job.IsComplete() == false) {
-		if(util::CommandManager::ShouldExit())
+		if(pragma::util::CommandManager::ShouldExit())
 			job.Cancel();
 		else {
 			auto progress = job.GetProgress();
 			auto tDelta = std::chrono::high_resolution_clock::now() - devInfo.startTime;
 			double tDeltaD = tDelta.count() / static_cast<double>(progress) * static_cast<double>(1.f - progress);
-			auto strTime = util::get_pretty_duration(tDeltaD / 1'000'000.0);
+			auto strTime = pragma::util::get_pretty_duration(tDeltaD / 1'000'000.0);
 			std::stringstream ss;
-			ss << "Progress for job '" << ufile::get_file_from_filename(devInfo.outputPath.GetString()) << "': " << util::round_string(progress * 100.f, 2) << " %";
+			ss << "Progress for job '" << ufile::get_file_from_filename(devInfo.outputPath.GetString()) << "': " << pragma::util::round_string(progress * 100.f, 2) << " %";
 			if(progress > 0.f)
 				ss << " Time remaining: " << strTime << ".";
 
 			auto numCompleted = m_numSucceeded + m_numFailed + m_numSkipped;
 			auto totalProgress = (numCompleted + progress) / static_cast<float>(m_numJobs);
-			ss << " Total progress: " << util::round_string(totalProgress * 100.f, 2.f) << "%";
+			ss << " Total progress: " << pragma::util::round_string(totalProgress * 100.f, 2.f) << "%";
 
 			auto tDeltaAll = std::chrono::high_resolution_clock::now() - m_startTime;
 			auto tDeltaMs = std::chrono::duration_cast<std::chrono::milliseconds>(tDeltaAll);
-			auto timePassed = util::get_pretty_duration(tDeltaMs.count());
+			auto timePassed = pragma::util::get_pretty_duration(tDeltaMs.count());
 			ss << " Total time passed: " << timePassed;
 
 			auto numComplete = m_numSucceeded + progress;
 			auto numLeft = m_numJobs - m_numFailed - m_numSkipped - numComplete;
 			auto tRemainingMs = (tDeltaMs / numComplete) * numLeft;
-			auto timeRemaining = util::get_pretty_duration(tRemainingMs.count());
+			auto timeRemaining = pragma::util::get_pretty_duration(tRemainingMs.count());
 			ss << " Total time remaining: " << timeRemaining;
 			g_logger->info(ss.str());
 		}
@@ -453,7 +453,7 @@ void RTJobManager::UpdateJob(DeviceInfo &devInfo)
 		if(m_renderMode == pragma::scenekit::Scene::RenderMode::BakeDiffuseLighting || m_renderMode == pragma::scenekit::Scene::RenderMode::BakeDiffuseLightingSeparate) {
 			struct OutputImageInfo {
 				std::string suffix = "";
-				std::shared_ptr<uimg::ImageBuffer> imgBuf;
+				std::shared_ptr<pragma::image::ImageBuffer> imgBuf;
 			};
 			std::vector<OutputImageInfo> outputImageInfos;
 			if(m_renderMode == pragma::scenekit::Scene::RenderMode::BakeDiffuseLighting)
@@ -469,39 +469,39 @@ void RTJobManager::UpdateJob(DeviceInfo &devInfo)
 
 				if(m_saveAsHdr) {
 					path += ".hdr";
-					auto f = filemanager::open_system_file(path.GetString(), filemanager::FileMode::Write | filemanager::FileMode::Binary);
+					auto f = pragma::fs::open_system_file(path.GetString(), pragma::fs::FileMode::Write | pragma::fs::FileMode::Binary);
 					if(!f) {
 						errMsg = "Failed to open output file '" + path.GetString() + "'!";
 						continue;
 					}
-					fsys::File fp {f};
-					if(!uimg::save_image(fp, *outputImgInfo.imgBuf, uimg::ImageFormat::HDR))
+					pragma::fs::File fp {f};
+					if(!pragma::image::save_image(fp, *outputImgInfo.imgBuf, pragma::image::ImageFormat::HDR))
 						errMsg = "Unable to save image as '" + devInfo.outputPath.GetString() + "'!";
 					continue;
 				}
 				path += ".dds";
-				uimg::TextureInfo texInfo {};
-				texInfo.containerFormat = uimg::TextureInfo::ContainerFormat::DDS;
-				texInfo.inputFormat = uimg::TextureInfo::InputFormat::R16G16B16A16_Float;
-				texInfo.outputFormat = uimg::TextureInfo::OutputFormat::BC6;
-				texInfo.flags = uimg::TextureInfo::Flags::GenerateMipmaps;
-				uimg::TextureSaveInfo saveInfo {};
+				pragma::image::TextureInfo texInfo {};
+				texInfo.containerFormat = pragma::image::TextureInfo::ContainerFormat::DDS;
+				texInfo.inputFormat = pragma::image::TextureInfo::InputFormat::R16G16B16A16_Float;
+				texInfo.outputFormat = pragma::image::TextureInfo::OutputFormat::BC6;
+				texInfo.flags = pragma::image::TextureInfo::Flags::GenerateMipmaps;
+				pragma::image::TextureSaveInfo saveInfo {};
 				saveInfo.texInfo = texInfo;
-				if(uimg::save_texture(path.GetString(), *outputImgInfo.imgBuf, saveInfo, nullptr, true) == false)
+				if(pragma::image::save_texture(path.GetString(), *outputImgInfo.imgBuf, saveInfo, nullptr, true) == false)
 					errMsg = "Unable to save image as '" + devInfo.outputPath.GetString() + "'!";
 			}
 		}
 		else {
-			auto fImg = FileManager::OpenSystemFile(devInfo.outputPath.GetString().c_str(), "wb");
+			auto fImg = pragma::fs::open_system_file(devInfo.outputPath.GetString().c_str(), pragma::fs::FileMode::Write | pragma::fs::FileMode::Binary);
 			if(fImg) {
-				/*auto ocioConfigLocation = util::Path::CreatePath(util::get_program_path());
+				/*auto ocioConfigLocation = pragma::util::Path::CreatePath(pragma::util::get_program_path());
 				ocioConfigLocation += "../modules/open_color_io/configs/";
 				ocioConfigLocation.Canonicalize();*/
 				switch(m_toneMapping) {
 				case ToneMapping::FilmicBlender:
 					{
 						//std::string err;
-						//if(util::ocio::apply_color_transform(*imgBuf,util::ocio::Config::FilmicBlender,ocioConfigLocation.GetString(),err,m_exposure,m_gamma) == false)
+						//if(pragma::util::ocio::apply_color_transform(*imgBuf,util::ocio::Config::FilmicBlender,ocioConfigLocation.GetString(),err,m_exposure,m_gamma) == false)
 						//	errMsg = "Unable to apply OCIO color transform: " +err;
 						//imgBuf->ToLDR();
 						//imgBuf->ClearAlpha(std::numeric_limits<uint8_t>::max());
@@ -511,13 +511,13 @@ void RTJobManager::UpdateJob(DeviceInfo &devInfo)
 
 				if(errMsg.has_value() == false) {
 					auto result = false;
-					imgBuf->Convert(uimg::Format::RGB_LDR);
+					imgBuf->Convert(pragma::image::Format::RGB_LDR);
 
 					//if(imgBuf->IsHDRFormat() || imgBuf->IsFloatFormat())
-					//	result = uimg::save_image(fImg,*imgBuf,uimg::ImageFormat::HDR);
+					//	result = image::save_image(fImg,*imgBuf,image::ImageFormat::HDR);
 					//else
-					fsys::File fp {fImg};
-					result = uimg::save_image(fp, *imgBuf, uimg::ImageFormat::PNG);
+					pragma::fs::File fp {fImg};
+					result = pragma::image::save_image(fp, *imgBuf, pragma::image::ImageFormat::PNG);
 					if(result == false)
 						errMsg = "Unable to save image as '" + devInfo.outputPath.GetString() + "'!";
 				}
@@ -525,7 +525,7 @@ void RTJobManager::UpdateJob(DeviceInfo &devInfo)
 			if(errMsg.has_value()) {
 				g_logger->error(*errMsg);
 				fImg = nullptr;
-				FileManager::RemoveSystemFile(devInfo.outputPath.GetString().c_str());
+				pragma::fs::remove_system_file(devInfo.outputPath.GetString());
 			}
 			else
 				++m_numSucceeded;
@@ -539,7 +539,7 @@ void RTJobManager::PrintCommandHelp()
 {
 	std::stringstream ss;
 	ss << "Available commands:\n";
-	for(auto &cmd : util::CommandManager ::GetCommands())
+	for(auto &cmd : pragma::util::CommandManager ::GetCommands())
 		ss << cmd << "\n";
 	ss << "\n";
 	g_logger->info(ss.str());
@@ -695,21 +695,21 @@ bool RTJobManager::StartJob(const std::string &jobName, DeviceInfo &devInfo)
 	// Using pragma::scenekit::Scene::PRT_EXTENSION_BINARY causes linker errors with msvc
 	auto jobFileNameBin = jobFileName + '.' + std::string {"prt_b"};
 	// auto jobFileNameBin = jobFileName +'.' +std::string {pragma::scenekit::Scene::PRT_EXTENSION_BINARY};
-	if(filemanager::exists(jobFileNameBin) || filemanager::exists_system(jobFileNameBin))
+	if(pragma::fs::exists(jobFileNameBin) || pragma::fs::exists_system(jobFileNameBin))
 		jobFileName = jobFileNameBin;
 	else {
 		auto jobFileNameAscii = jobFileName + '.' + std::string {"prt"};
 		// auto jobFileNameAscii = jobFileName +'.' +std::string {pragma::scenekit::Scene::PRT_EXTENSION_ASCII};
-		if(filemanager::exists(jobFileNameAscii) || filemanager::exists_system(jobFileNameAscii))
+		if(pragma::fs::exists(jobFileNameAscii) || pragma::fs::exists_system(jobFileNameAscii))
 			jobFileName = jobFileNameAscii;
 		else
 			jobFileName = jobFileNameBin; // Fall back to binary for error messages
 	}
 
 	std::string err;
-	auto f = filemanager::open_file(jobFileName, filemanager::FileMode::Read | filemanager::FileMode::Binary, &err);
+	auto f = pragma::fs::open_file(jobFileName, pragma::fs::FileMode::Read | pragma::fs::FileMode::Binary, &err);
 	if(!f)
-		f = filemanager::open_system_file(jobFileName, filemanager::FileMode::Read | filemanager::FileMode::Binary, &err);
+		f = pragma::fs::open_system_file(jobFileName, pragma::fs::FileMode::Read | pragma::fs::FileMode::Binary, &err);
 	if(!f) {
 		g_logger->error("Failed to open file '{}': {}", jobFileName, err);
 		++m_numFailed;
@@ -718,7 +718,7 @@ bool RTJobManager::StartJob(const std::string &jobName, DeviceInfo &devInfo)
 
 	std::shared_ptr<udm::Data> data {};
 	try {
-		auto file = std::make_unique<fsys::File>(f);
+		auto file = std::make_unique<pragma::fs::File>(f);
 		data = udm::Data::Load(std::move(file));
 	}
 	catch(const udm::Exception &e) {
@@ -749,13 +749,13 @@ bool RTJobManager::StartJob(const std::string &jobName, DeviceInfo &devInfo)
 		fileName += ".png";
 		auto &outputPath = devInfo.outputPath;
 		auto absJobFilePath = jobFileName;
-		auto *fptrReal = dynamic_cast<VFilePtrInternalReal *>(f.get());
+		auto *fptrReal = dynamic_cast<pragma::fs::VFilePtrInternalReal *>(f.get());
 		if(fptrReal)
 			absJobFilePath = fptrReal->GetPath();
-		outputPath = util::Path::CreatePath(ufile::get_path_from_filename(absJobFilePath));
+		outputPath = pragma::util::Path::CreatePath(ufile::get_path_from_filename(absJobFilePath));
 		outputPath += ufile::get_file_from_filename(fileName); // TODO: Only write file name in the first place
 
-		if(FileManager::ExistsSystem(outputPath.GetString())) {
+		if(pragma::fs::exists_system(outputPath.GetString())) {
 			g_logger->info("Output file '{}' for job '{}' already exists! Skipping...", outputPath.GetString(), ufile::get_file_from_filename(jobFileName));
 			++m_numSkipped;
 			return false;
@@ -766,19 +766,19 @@ bool RTJobManager::StartJob(const std::string &jobName, DeviceInfo &devInfo)
 		auto itRenderMode = m_launchParams.find("-render_mode");
 		if(itRenderMode != m_launchParams.end()) {
 			auto &strRenderMode = itRenderMode->second;
-			if(ustring::compare<std::string>(strRenderMode, "albedo", false))
+			if(pragma::string::compare<std::string>(strRenderMode, "albedo", false))
 				renderMode = pragma::scenekit::Scene::RenderMode::SceneAlbedo;
-			else if(ustring::compare<std::string>(strRenderMode, "depth", false))
+			else if(pragma::string::compare<std::string>(strRenderMode, "depth", false))
 				renderMode = pragma::scenekit::Scene::RenderMode::SceneDepth;
-			else if(ustring::compare<std::string>(strRenderMode, "normals", false))
+			else if(pragma::string::compare<std::string>(strRenderMode, "normals", false))
 				renderMode = pragma::scenekit::Scene::RenderMode::SceneNormals;
-			else if(ustring::compare<std::string>(strRenderMode, "image", false))
+			else if(pragma::string::compare<std::string>(strRenderMode, "image", false))
 				renderMode = pragma::scenekit::Scene::RenderMode::RenderImage;
 		}
 
 		auto itSamples = m_launchParams.find("-samples");
 		if(itSamples != m_launchParams.end())
-			createInfo.samples = ustring::to_int(itSamples->second);
+			createInfo.samples = pragma::string::to_int(itSamples->second);
 
 		auto itColorTransform = m_launchParams.find("-color_transform");
 		if(itColorTransform != m_launchParams.end()) {
@@ -792,7 +792,7 @@ bool RTJobManager::StartJob(const std::string &jobName, DeviceInfo &devInfo)
 
 		auto itDenoise = m_launchParams.find("-denoise");
 		if(itDenoise != m_launchParams.end())
-			createInfo.denoiseMode = util::to_boolean(itDenoise->second) ? pragma::scenekit::Scene::DenoiseMode::AutoDetailed : pragma::scenekit::Scene::DenoiseMode::AutoFast;
+			createInfo.denoiseMode = pragma::util::to_boolean(itDenoise->second) ? pragma::scenekit::Scene::DenoiseMode::AutoDetailed : pragma::scenekit::Scene::DenoiseMode::AutoFast;
 
 		auto itAdaptiveSampling = m_launchParams.find("-adaptiveSampling");
 		if(itAdaptiveSampling != m_launchParams.end()) {
@@ -804,13 +804,13 @@ bool RTJobManager::StartJob(const std::string &jobName, DeviceInfo &devInfo)
 			adaptiveMinSamples = 0;
 
 			std::vector<std::string> args;
-			ustring::explode_whitespace(itAdaptiveSampling->second, args);
+			pragma::string::explode_whitespace(itAdaptiveSampling->second, args);
 			if(args.size() > 0) {
-				enabled = util::to_boolean(args[0]);
+				enabled = pragma::util::to_boolean(args[0]);
 				if(args.size() > 1) {
-					adaptiveSamplingThreshold = util::to_float(args[1]);
+					adaptiveSamplingThreshold = pragma::util::to_float(args[1]);
 					if(args.size() > 2)
-						adaptiveMinSamples = util::to_uint(args[2]);
+						adaptiveMinSamples = pragma::util::to_uint(args[2]);
 				}
 			}
 		}
@@ -822,7 +822,7 @@ bool RTJobManager::StartJob(const std::string &jobName, DeviceInfo &devInfo)
 			createInfo.hdrOutput = false;
 
 		auto itLog = m_launchParams.find("-log");
-		if(itLog == m_launchParams.end() || util::to_boolean(itLog->second) == false)
+		if(itLog == m_launchParams.end() || pragma::util::to_boolean(itLog->second) == false)
 			pragma::scenekit::set_log_handler();
 		else {
 			pragma::scenekit::set_log_handler([](const std::string &msg) { g_logger->info(msg); });
@@ -855,20 +855,20 @@ bool RTJobManager::StartJob(const std::string &jobName, DeviceInfo &devInfo)
 		rtScene->SetSky(itSky->second);
 	auto itSkyStrength = m_launchParams.find("-sky_strength");
 	if(itSkyStrength != m_launchParams.end())
-		rtScene->SetSkyStrength(util::to_float(itSkyStrength->second));
+		rtScene->SetSkyStrength(pragma::util::to_float(itSkyStrength->second));
 	auto itSkyAngle = m_launchParams.find("-sky_angle");
 	if(itSkyAngle != m_launchParams.end())
-		rtScene->SetSkyAngles(EulerAngles {0.f, util::to_float(itSkyAngle->second), 0.f});
+		rtScene->SetSkyAngles(EulerAngles {0.f, pragma::util::to_float(itSkyAngle->second), 0.f});
 
 	auto itCamType = m_launchParams.find("-camera_type");
 	if(itCamType != m_launchParams.end()) {
 		auto &strCamType = itCamType->second;
 		std::optional<pragma::scenekit::Camera::CameraType> camType {};
-		if(ustring::compare<std::string>(strCamType, "orthographic", false))
+		if(pragma::string::compare<std::string>(strCamType, "orthographic", false))
 			camType = pragma::scenekit::Camera::CameraType::Orthographic;
-		else if(ustring::compare<std::string>(strCamType, "perspective", false))
+		else if(pragma::string::compare<std::string>(strCamType, "perspective", false))
 			camType = pragma::scenekit::Camera::CameraType::Perspective;
-		else if(ustring::compare<std::string>(strCamType, "panorama", false))
+		else if(pragma::string::compare<std::string>(strCamType, "panorama", false))
 			camType = pragma::scenekit::Camera::CameraType::Panorama;
 		if(camType.has_value())
 			rtScene->GetCamera().SetCameraType(*camType);
@@ -878,13 +878,13 @@ bool RTJobManager::StartJob(const std::string &jobName, DeviceInfo &devInfo)
 	if(itPanoramaType != m_launchParams.end()) {
 		auto &strPanoramaType = itPanoramaType->second;
 		std::optional<pragma::scenekit::Camera::PanoramaType> panoramaType {};
-		if(ustring::compare<std::string>(strPanoramaType, "equirectangular", false))
+		if(pragma::string::compare<std::string>(strPanoramaType, "equirectangular", false))
 			panoramaType = pragma::scenekit::Camera::PanoramaType::Equirectangular;
-		else if(ustring::compare<std::string>(strPanoramaType, "fisheye_equidistant", false))
+		else if(pragma::string::compare<std::string>(strPanoramaType, "fisheye_equidistant", false))
 			panoramaType = pragma::scenekit::Camera::PanoramaType::FisheyeEquidistant;
-		else if(ustring::compare<std::string>(strPanoramaType, "fisheye_equisolid", false))
+		else if(pragma::string::compare<std::string>(strPanoramaType, "fisheye_equisolid", false))
 			panoramaType = pragma::scenekit::Camera::PanoramaType::FisheyeEquisolid;
-		else if(ustring::compare<std::string>(strPanoramaType, "mirrorball", false))
+		else if(pragma::string::compare<std::string>(strPanoramaType, "mirrorball", false))
 			panoramaType = pragma::scenekit::Camera::PanoramaType::Mirrorball;
 		if(panoramaType.has_value())
 			rtScene->GetCamera().SetPanoramaType(*panoramaType);
@@ -892,24 +892,24 @@ bool RTJobManager::StartJob(const std::string &jobName, DeviceInfo &devInfo)
 
 	auto itStereoscopic = m_launchParams.find("-stereoscopic");
 	if(itStereoscopic != m_launchParams.end())
-		rtScene->GetCamera().SetStereoscopic(util::to_boolean(itStereoscopic->second));
+		rtScene->GetCamera().SetStereoscopic(pragma::util::to_boolean(itStereoscopic->second));
 
 	auto itHorizontalRange = m_launchParams.find("-horizontal_camera_range");
 	if(itHorizontalRange != m_launchParams.end())
-		rtScene->GetCamera().SetEquirectangularHorizontalRange(util::to_float(itHorizontalRange->second));
+		rtScene->GetCamera().SetEquirectangularHorizontalRange(pragma::util::to_float(itHorizontalRange->second));
 
 	auto itVerticalRange = m_launchParams.find("-vertical_camera_range");
 	if(itVerticalRange != m_launchParams.end())
-		rtScene->GetCamera().SetEquirectangularVerticalRange(util::to_float(itVerticalRange->second));
+		rtScene->GetCamera().SetEquirectangularVerticalRange(pragma::util::to_float(itVerticalRange->second));
 
 	// TODO: Add options for applying tone-mapping directly, as well as outputting to non-HDR formats
 
 	auto itWidth = m_launchParams.find("-width");
 	if(itWidth != m_launchParams.end())
-		width = util::to_int(itWidth->second);
+		width = pragma::util::to_int(itWidth->second);
 	auto itHeight = m_launchParams.find("-height");
 	if(itHeight != m_launchParams.end())
-		height = util::to_int(itHeight->second);
+		height = pragma::util::to_int(itHeight->second);
 	if((width % 2) != 0)
 		width += 1;
 	if((height % 2) != 0)
@@ -974,14 +974,14 @@ DLLEXPORT int render_raytracing(int argc, char *argv[])
 	while(rtManager->IsComplete() == false)
 		rtManager->Update();
 
-	util::flash_window();
+	pragma::util::flash_window();
 	g_logger->info("{} succeeded, {} skipped and {} failed!", rtManager->GetNumSucceeded(), rtManager->GetNumSkipped(), rtManager->GetNumFailed());
 
 	auto shutDown = rtManager->ShouldShutDownOnCompletion();
 	auto waitBeforeExit = true;
 	if(!rtManager->ShouldAutoCloseOnCompletion() && !shutDown) {
 		g_logger->info("Press enter to exit...");
-		util::CommandManager::Stop();
+		pragma::util::CommandManager::Stop();
 		waitBeforeExit = false;
 	}
 
@@ -991,7 +991,7 @@ DLLEXPORT int render_raytracing(int argc, char *argv[])
 	if(shutDown) {
 		g_logger->info("Shutting down...");
 		std::this_thread::sleep_for(std::chrono::seconds {5});
-		util::shutdown_os();
+		pragma::util::shutdown_os();
 	}
 	return EXIT_SUCCESS;
 }
