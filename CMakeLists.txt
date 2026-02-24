@@ -19,11 +19,11 @@ pr_add_third_party_dependency(${PROJ_NAME} tbb)
 
 pr_init_module(${PROJ_NAME})
 
+set_target_properties(${PROJ_NAME} PROPERTIES DEBUGGER_WORKING_DIRECTORY "${CMAKE_INSTALL_PREFIX}/${BINARY_OUTPUT_DIR}")
 if(UNIX)
     target_link_libraries(${PROJ_NAME} PRIVATE "dl")
     target_link_libraries(${PROJ_NAME} PRIVATE "pthread")
 else()
-    set_target_properties(${PROJ_NAME} PROPERTIES VS_DEBUGGER_WORKING_DIRECTORY "${CMAKE_INSTALL_PREFIX}/${BINARY_OUTPUT_DIR}")
     set_target_properties(${PROJ_NAME} PROPERTIES VS_DEBUGGER_COMMAND "${CMAKE_INSTALL_PREFIX}/${BINARY_OUTPUT_DIR}/${PROJ_NAME}.exe")
 endif()
 
