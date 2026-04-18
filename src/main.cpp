@@ -62,7 +62,7 @@ int main(int argc, char *argv[])
 
 	size_t resDirIdx = 1;
 	for(auto &resourceDir : resourceDirs) {
-		pragma::fs::add_secondary_absolute_read_only_root_path("resource" + std::to_string(resDirIdx), resourceDir, resDirIdx /* priority */);
+		pragma::fs::add_secondary_absolute_read_only_root_path("resource" + pragma::util::to_string(resDirIdx), resourceDir, resDirIdx /* priority */);
 		++resDirIdx;
 	}
 	//
